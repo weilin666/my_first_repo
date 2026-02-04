@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NYC Gov Jobs Advanced Search</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__content">
+        <p class="hero__eyebrow">NYC Careers Explorer</p>
+        <h1>Search NYC government jobs with flexible filters.</h1>
+        <p>
+          Build complex job searches with as many filters as you need, then save and
+          reuse them anytime.
+        </p>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="panel">
+        <div class="panel__header">
+          <div>
+            <h2>Advanced filters</h2>
+            <p>Add, reorder, and refine filters to focus on the roles you want.</p>
+          </div>
+          <button class="button button--ghost" id="reset-filters">Reset</button>
+        </div>
+
+        <form id="filters-form">
+          <div class="filters" id="filters-list"></div>
+          <div class="actions">
+            <button type="button" class="button button--secondary" id="add-filter">
+              + Add filter
+            </button>
+            <button type="submit" class="button">Search jobs</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel panel--light">
+        <div class="panel__header">
+          <div>
+            <h2>Search preview</h2>
+            <p>See the combined search query you are building.</p>
+          </div>
+          <button class="button button--ghost" id="save-search">Save search</button>
+        </div>
+        <div class="preview" id="query-preview">
+          Add filters to generate a query preview.
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel__header">
+          <div>
+            <h2>Matching jobs</h2>
+            <p>Preview results based on your filters.</p>
+          </div>
+          <span class="badge" id="results-count">0 matches</span>
+        </div>
+        <div class="results" id="results"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>
+        NYC Gov Jobs Explorer &middot; Build as many filters as you like, then share
+        the search with your team.
+      </p>
+    </footer>
+
+    <template id="filter-template">
+      <div class="filter" data-filter-id="">
+        <div class="filter__header">
+          <span class="filter__title">Filter</span>
+          <button type="button" class="button button--ghost filter__remove">Remove</button>
+        </div>
+        <div class="filter__body">
+          <label>
+            Field
+            <select class="filter__field">
+              <option value="keyword">Keyword</option>
+              <option value="agency">Agency</option>
+              <option value="category">Job Category</option>
+              <option value="salary">Salary Range</option>
+              <option value="date">Posting Date</option>
+              <option value="location">Work Location</option>
+              <option value="type">Employment Type</option>
+              <option value="level">Career Level</option>
+              <option value="schedule">Work Schedule</option>
+            </select>
+          </label>
+          <label>
+            Operator
+            <select class="filter__operator"></select>
+          </label>
+          <label class="filter__value">
+            Value
+            <input class="filter__input" type="text" placeholder="Add a value" />
+          </label>
+        </div>
+      </div>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
