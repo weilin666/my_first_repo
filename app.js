@@ -1,230 +1,248 @@
-const filtersList = document.getElementById("filters-list");
-const addFilterButton = document.getElementById("add-filter");
-const resetFiltersButton = document.getElementById("reset-filters");
-const queryPreview = document.getElementById("query-preview");
-const resultsContainer = document.getElementById("results");
-const resultsCount = document.getElementById("results-count");
+const canvas = document.getElementById("pong-canvas");
+const ctx = canvas.getContext("2d");
 
-const operatorOptions = {
-  keyword: ["contains", "does not contain"],
-  agency: ["is", "is not", "contains"],
-  category: ["is", "is not"],
-  salary: ["between", ">=", "<="] ,
-  date: ["after", "before", "on"],
-  location: ["is", "is not", "contains"],
-  type: ["is", "is not"],
-  level: ["is", "is not"],
-  schedule: ["is", "is not"],
+const playerScoreEl = document.getElementById("player-score");
+const cpuScoreEl = document.getElementById("cpu-score");
+const statusEl = document.getElementById("status");
+const startBtn = document.getElementById("start-btn");
+const restartBtn = document.getElementById("restart-btn");
+
+const state = {
+  running: false,
+  gameOver: false,
+  winner: "",
+  playerScore: 0,
+  cpuScore: 0,
 };
 
-const sampleJobs = [
-  {
-    title: "Program Manager, Community Affairs",
-    agency: "Mayor's Office",
-    location: "Manhattan",
-    level: "Manager",
-    type: "Full-time",
-    salary: "$82,000 - $95,000",
-  },
-  {
-    title: "Data Analyst",
-    agency: "Department of Health",
-    location: "Queens",
-    level: "Mid-level",
-    type: "Full-time",
-    salary: "$76,500 - $88,000",
-  },
-  {
-    title: "Civil Engineer",
-    agency: "Department of Transportation",
-    location: "Brooklyn",
-    level: "Senior",
-    type: "Full-time",
-    salary: "$98,000 - $120,000",
-  },
-];
+const WIN_SCORE = 10;
+const PADDLE_WIDTH = 14;
+const PADDLE_HEIGHT = 88;
+const PADDLE_MARGIN = 20;
 
-const createFilterId = (() => {
-  let id = 0;
-  return () => {
-    id += 1;
-    return `filter-${id}`;
-  };
-})();
-
-const buildOperatorOptions = (operatorSelect, field) => {
-  operatorSelect.innerHTML = "";
-  operatorOptions[field].forEach((option) => {
-    const opt = document.createElement("option");
-    opt.value = option;
-    opt.textContent = option;
-    operatorSelect.appendChild(opt);
-  });
+const player = {
+  x: PADDLE_MARGIN,
+  y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+  width: PADDLE_WIDTH,
+  height: PADDLE_HEIGHT,
+  speed: 7,
+  up: false,
+  down: false,
 };
 
-const updateInputType = (filterElement, field) => {
-  const input = filterElement.querySelector(".filter__input");
-  const wrapper = filterElement.querySelector(".filter__value");
+const cpu = {
+  x: canvas.width - PADDLE_MARGIN - PADDLE_WIDTH,
+  y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+  width: PADDLE_WIDTH,
+  height: PADDLE_HEIGHT,
+  speed: 4.5,
+};
 
-  input.type = "text";
-  input.placeholder = "Add a value";
+const ball = {
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  radius: 10,
+  vx: 0,
+  vy: 0,
+  speed: 6,
+};
 
-  if (field === "salary") {
-    input.type = "text";
-    input.placeholder = "e.g. 70000 - 90000";
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const updateScoreUI = () => {
+  playerScoreEl.textContent = state.playerScore;
+  cpuScoreEl.textContent = state.cpuScore;
+};
+
+const resetBall = (direction = 1) => {
+  ball.x = canvas.width / 2;
+  ball.y = canvas.height / 2;
+  ball.speed = 6;
+
+  const angle = (Math.random() * Math.PI) / 3 - Math.PI / 6;
+  ball.vx = Math.cos(angle) * ball.speed * direction;
+  ball.vy = Math.sin(angle) * ball.speed;
+};
+
+const resetGame = () => {
+  state.running = false;
+  state.gameOver = false;
+  state.winner = "";
+  state.playerScore = 0;
+  state.cpuScore = 0;
+
+  player.y = canvas.height / 2 - PADDLE_HEIGHT / 2;
+  cpu.y = canvas.height / 2 - PADDLE_HEIGHT / 2;
+
+  ball.vx = 0;
+  ball.vy = 0;
+  ball.x = canvas.width / 2;
+  ball.y = canvas.height / 2;
+
+  updateScoreUI();
+  statusEl.textContent = "Press Start to serve the ball.";
+};
+
+const startGame = () => {
+  if (state.gameOver) {
+    resetGame();
   }
 
-  if (field === "date") {
-    input.type = "date";
+  if (!state.running) {
+    state.running = true;
+    const serveDirection = Math.random() > 0.5 ? 1 : -1;
+    resetBall(serveDirection);
+    statusEl.textContent = "Game on!";
   }
-
-  wrapper.querySelector("span")?.remove();
 };
 
-const addFilter = (defaults = {}) => {
-  const template = document.getElementById("filter-template");
-  const filterElement = template.content.firstElementChild.cloneNode(true);
-  const filterId = createFilterId();
+const checkPaddleCollision = (paddle) => {
+  const hit =
+    ball.x - ball.radius < paddle.x + paddle.width &&
+    ball.x + ball.radius > paddle.x &&
+    ball.y + ball.radius > paddle.y &&
+    ball.y - ball.radius < paddle.y + paddle.height;
 
-  filterElement.dataset.filterId = filterId;
-
-  const fieldSelect = filterElement.querySelector(".filter__field");
-  const operatorSelect = filterElement.querySelector(".filter__operator");
-  const input = filterElement.querySelector(".filter__input");
-  const removeButton = filterElement.querySelector(".filter__remove");
-
-  fieldSelect.value = defaults.field || "keyword";
-  buildOperatorOptions(operatorSelect, fieldSelect.value);
-  operatorSelect.value = defaults.operator || operatorSelect.options[0].value;
-  input.value = defaults.value || "";
-  updateInputType(filterElement, fieldSelect.value);
-
-  fieldSelect.addEventListener("change", () => {
-    buildOperatorOptions(operatorSelect, fieldSelect.value);
-    updateInputType(filterElement, fieldSelect.value);
-    updatePreview();
-  });
-
-  operatorSelect.addEventListener("change", updatePreview);
-  input.addEventListener("input", updatePreview);
-
-  removeButton.addEventListener("click", () => {
-    filterElement.remove();
-    updatePreview();
-  });
-
-  filtersList.appendChild(filterElement);
-};
-
-const getFilters = () => {
-  return Array.from(filtersList.children).map((filter) => {
-    return {
-      field: filter.querySelector(".filter__field").value,
-      operator: filter.querySelector(".filter__operator").value,
-      value: filter.querySelector(".filter__input").value.trim(),
-    };
-  });
-};
-
-const updatePreview = () => {
-  const filters = getFilters();
-  if (!filters.length) {
-    queryPreview.textContent = "Add filters to generate a query preview.";
-    resultsContainer.innerHTML = "";
-    resultsCount.textContent = "0 matches";
+  if (!hit) {
     return;
   }
 
-  const filterDescriptions = filters.map((filter) => {
-    const value = filter.value || "(any value)";
-    return `${filter.field} ${filter.operator} ${value}`;
-  });
+  const relative = (ball.y - (paddle.y + paddle.height / 2)) / (paddle.height / 2);
+  const bounceAngle = relative * (Math.PI / 3);
+  const direction = paddle === player ? 1 : -1;
 
-  queryPreview.textContent = filterDescriptions.join(" AND ");
-  renderResults(filters);
+  ball.speed = Math.min(ball.speed + 0.35, 12);
+  ball.vx = Math.cos(bounceAngle) * ball.speed * direction;
+  ball.vy = Math.sin(bounceAngle) * ball.speed;
+
+  if (paddle === player) {
+    ball.x = player.x + player.width + ball.radius;
+  } else {
+    ball.x = cpu.x - ball.radius;
+  }
 };
 
-const getFieldValue = (job, field) => {
-  if (field === "keyword") {
-    return `${job.title} ${job.agency} ${job.location}`;
+const scorePoint = (scoredByPlayer) => {
+  if (scoredByPlayer) {
+    state.playerScore += 1;
+    statusEl.textContent = "You scored!";
+  } else {
+    state.cpuScore += 1;
+    statusEl.textContent = "CPU scored!";
   }
 
-  if (field === "salary") {
-    return job.salary;
+  updateScoreUI();
+
+  if (state.playerScore >= WIN_SCORE || state.cpuScore >= WIN_SCORE) {
+    state.running = false;
+    state.gameOver = true;
+    state.winner = state.playerScore >= WIN_SCORE ? "You win 🎉" : "CPU wins 🤖";
+    statusEl.textContent = `${state.winner} Press Restart to play again.`;
+    ball.vx = 0;
+    ball.vy = 0;
+    return;
   }
 
-  return job[field] || "";
+  const direction = scoredByPlayer ? -1 : 1;
+  resetBall(direction);
 };
 
-const renderResults = (filters) => {
-  resultsContainer.innerHTML = "";
-  const matches = sampleJobs.filter((job) => {
-    return filters.every((filter) => {
-      if (!filter.value) {
-        return true;
-      }
+const update = () => {
+  player.y += (player.down - player.up) * player.speed;
+  player.y = clamp(player.y, 0, canvas.height - player.height);
 
-      const fieldValue = getFieldValue(job, filter.field);
-      const normalizedField = fieldValue.toLowerCase();
-      const normalizedValue = filter.value.toLowerCase();
+  const targetY = ball.y - cpu.height / 2;
+  const diff = targetY - cpu.y;
+  cpu.y += clamp(diff, -cpu.speed, cpu.speed);
+  cpu.y = clamp(cpu.y, 0, canvas.height - cpu.height);
 
-      if (filter.operator === "contains") {
-        return normalizedField.includes(normalizedValue);
-      }
+  if (!state.running) {
+    return;
+  }
 
-      if (filter.operator === "does not contain") {
-        return !normalizedField.includes(normalizedValue);
-      }
+  ball.x += ball.vx;
+  ball.y += ball.vy;
 
-      if (filter.operator === "is") {
-        return normalizedField === normalizedValue;
-      }
+  if (ball.y - ball.radius <= 0 || ball.y + ball.radius >= canvas.height) {
+    ball.vy *= -1;
+    ball.y = clamp(ball.y, ball.radius, canvas.height - ball.radius);
+  }
 
-      if (filter.operator === "is not") {
-        return normalizedField !== normalizedValue;
-      }
+  checkPaddleCollision(player);
+  checkPaddleCollision(cpu);
 
-      return true;
-    });
-  });
+  if (ball.x + ball.radius < 0) {
+    scorePoint(false);
+  }
 
-  matches.forEach((job) => {
-    const card = document.createElement("article");
-    card.className = "result-card";
-    card.innerHTML = `
-      <h3>${job.title}</h3>
-      <div class="result-meta">
-        <span>${job.agency}</span>
-        <span>${job.location}</span>
-        <span>${job.level}</span>
-        <span>${job.type}</span>
-      </div>
-      <strong>${job.salary}</strong>
-    `;
-    resultsContainer.appendChild(card);
-  });
-
-  resultsCount.textContent = `${matches.length} match${matches.length === 1 ? "" : "es"}`;
+  if (ball.x - ball.radius > canvas.width) {
+    scorePoint(true);
+  }
 };
 
-addFilter({ field: "keyword", operator: "contains", value: "" });
-addFilter({ field: "agency", operator: "is", value: "" });
+const drawNet = () => {
+  ctx.setLineDash([8, 14]);
+  ctx.strokeStyle = "rgba(255,255,255,0.25)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(canvas.width / 2, 0);
+  ctx.lineTo(canvas.width / 2, canvas.height);
+  ctx.stroke();
+  ctx.setLineDash([]);
+};
 
-addFilterButton.addEventListener("click", () => {
-  addFilter();
-  updatePreview();
+const drawPaddle = (paddle, color) => {
+  ctx.fillStyle = color;
+  ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+};
+
+const drawBall = () => {
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fill();
+};
+
+const draw = () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#050d1b";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawNet();
+  drawPaddle(player, "#4cc9f0");
+  drawPaddle(cpu, "#f72585");
+  drawBall();
+};
+
+const loop = () => {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+};
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "w" || event.key === "W" || event.key === "ArrowUp") {
+    player.up = true;
+  }
+
+  if (event.key === "s" || event.key === "S" || event.key === "ArrowDown") {
+    player.down = true;
+  }
 });
 
-resetFiltersButton.addEventListener("click", () => {
-  filtersList.innerHTML = "";
-  addFilter({ field: "keyword", operator: "contains", value: "" });
-  updatePreview();
+document.addEventListener("keyup", (event) => {
+  if (event.key === "w" || event.key === "W" || event.key === "ArrowUp") {
+    player.up = false;
+  }
+
+  if (event.key === "s" || event.key === "S" || event.key === "ArrowDown") {
+    player.down = false;
+  }
 });
 
-const filtersForm = document.getElementById("filters-form");
-filtersForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  updatePreview();
-});
+startBtn.addEventListener("click", startGame);
+restartBtn.addEventListener("click", resetGame);
 
-updatePreview();
+resetGame();
+loop();
